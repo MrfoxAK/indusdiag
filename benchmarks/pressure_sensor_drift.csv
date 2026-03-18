@@ -1,0 +1,7 @@
+timestamp,tag,value,unit,asset,status
+2026-03-18 12:00:00,pressure_1,100,bar,PipelineA,ok
+2026-03-18 12:01:00,pressure_1,101,bar,PipelineA,ok
+2026-03-18 12:02:00,pressure_1,103,bar,PipelineA,ok
+2026-03-18 12:03:00,pressure_1,105,bar,PipelineA,ok
+2026-03-18 12:04:00,pressure_1,108,bar,PipelineA,ok
+2026-03-18 12:05:00,pressure_1,112,bar,PipelineA,ok

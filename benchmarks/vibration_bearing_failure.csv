@@ -1,0 +1,7 @@
+timestamp,tag,value,unit,asset,status
+2026-03-18 13:00:00,vibration_1,2.1,mm/s,MotorA,ok
+2026-03-18 13:01:00,vibration_1,2.3,mm/s,MotorA,ok
+2026-03-18 13:02:00,vibration_1,3.0,mm/s,MotorA,ok
+2026-03-18 13:03:00,vibration_1,250.5,mm/s,MotorA,ok
+2026-03-18 13:04:00,vibration_1,6.7,mm/s,MotorA,ok
+2026-03-18 13:05:00,vibration_1,8.5,mm/s,MotorA,ok
