@@ -1,5 +1,6 @@
 from rich import print
 from app.parser import parse_sensor_data
+from app.detectors import run_all_detectors
 
 
 def main():
@@ -10,9 +11,17 @@ def main():
 
     df = parse_sensor_data(file_path)
 
-    print("[green]Data successfully parsed![/green]")
+    print("[green]Data parsed successfully[/green]")
 
-    print(df)
+    findings = run_all_detectors(df)
+
+    print("\n[bold yellow]Anomaly Findings[/bold yellow]\n")
+
+    if not findings:
+        print("[green]No anomalies detected[/green]")
+    else:
+        for f in findings:
+            print(f)
 
 
 if __name__ == "__main__":
