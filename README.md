@@ -246,6 +246,10 @@ python performance_metrics.py --output results/performance_report.json
 
 ## Agent Architecture
 
+<div align="center">
+  <img src="architecture_diagram.svg" alt="IndusDiag System Architecture Diagram" width="100%"/>
+</div>
+
 IndusDiag follows a **6-phase agentic loop**:
 
 ```
