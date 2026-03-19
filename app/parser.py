@@ -27,7 +27,10 @@ def parse_sensor_data(file_path: str) -> pd.DataFrame:
             raise ValueError(f"Missing required column: {col}")
 
     # Convert timestamp
-    df["timestamp"] = pd.to_datetime(df["timestamp"])
+    # Be tolerant: if the timestamp format is inconsistent, coerce invalid rows
+    # to NaT and drop them instead of hard-failing the whole upload.
+    df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
+    df = df.dropna(subset=["timestamp"])
 
     # Sort by time
     df = df.sort_values("timestamp")

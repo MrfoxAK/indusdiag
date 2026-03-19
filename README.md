@@ -127,7 +127,7 @@ indusdiag/
 
 ```bash
 # 1. Clone and enter project
-git clone https://github.com/yourusername/indusdiag.git
+git clone https://github.com/MrfoxAK/indusdiag.git
 cd indusdiag
 
 # 2. Create virtual environment
@@ -162,7 +162,7 @@ python main.py --file data/samples/sensor_spike.csv --asset FurnaceSensorA
 
 **1. Clone the repository**
 ```bash
-git clone https://github.com/yourusername/indusdiag.git
+git clone https://github.com/MrfoxAK/indusdiag.git
 cd indusdiag
 ```
 

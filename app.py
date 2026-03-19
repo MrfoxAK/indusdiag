@@ -13,11 +13,25 @@ import sys
 import tempfile
 import time
 import traceback
+import warnings
 from io import StringIO
 from pathlib import Path
 
 import pandas as pd
 import streamlit as st
+
+# Expected normalized columns for the pipeline.
+REQUIRED_COLUMNS = ["timestamp", "tag", "value", "unit", "asset", "status"]
+
+# Common header synonyms (case/space insensitive) to make uploads forgiving.
+_COLUMN_SYNONYMS = {
+    "timestamp": ["timestamp", "time", "ts", "datetime", "date_time", "date time"],
+    "tag": ["tag", "sensor", "channel", "sensor_tag", "sensor tag"],
+    "value": ["value", "val", "reading", "measurement", "measure", "v"],
+    "unit": ["unit", "units", "uom", "unit_of_measurement", "unit of measurement"],
+    "asset": ["asset", "equipment", "machine", "device", "asset_id", "asset id"],
+    "status": ["status", "state", "health", "ok_status", "ok status"],
+}
 
 # ── Project root on sys.path ─────────────────────────────────────────────────
 ROOT = Path(__file__).parent
@@ -196,6 +210,57 @@ def f_score(f: dict) -> float:
         except: pass
     return 0.0
 
+
+def normalize_sensor_df(df: pd.DataFrame, asset_name: str) -> pd.DataFrame:
+    """
+    Normalize uploaded CSV columns to the schema required by `parse_sensor_data()`.
+
+    - Normalizes header casing/whitespace
+    - Renames common synonyms to canonical names
+    - Auto-fills optional columns if absent
+    """
+    if df is None:
+        return df
+
+    out = df.copy()
+    # Normalize header names.
+    out.columns = [str(c).strip().lower().replace(" ", "_") for c in out.columns]
+
+    # Handle BOM on the first column name, if present.
+    if len(out.columns) > 0 and str(out.columns[0]).startswith("\ufeff"):
+        out.columns = [str(out.columns[0]).lstrip("\ufeff")] + list(out.columns[1:])
+
+    # Build a set for quick lookup.
+    cols = set(out.columns)
+
+    # Rename any synonym headers to canonical required names.
+    for canonical, synonyms in _COLUMN_SYNONYMS.items():
+        if canonical in cols:
+            continue
+        # Normalize synonyms the same way we normalized the incoming headers.
+        normalized_synonyms = [
+            str(s).strip().lower().replace(" ", "_") for s in synonyms
+        ]
+        for s in normalized_synonyms:
+            if s in cols:
+                out = out.rename(columns={s: canonical})
+                cols.remove(s)
+                cols.add(canonical)
+                break
+
+    # Auto-fill optional columns if missing.
+    # `timestamp` and `value` must remain present or parsing/detection can't proceed.
+    if "tag" not in out.columns:
+        out["tag"] = "sensor"
+    if "unit" not in out.columns:
+        out["unit"] = ""
+    if "asset" not in out.columns:
+        out["asset"] = asset_name
+    if "status" not in out.columns:
+        out["status"] = "ok"
+
+    return out
+
 def unwrap_risk(rp: dict) -> dict:
     """tool_compute_risk returns {"risk_profile": {...}} — unwrap if needed."""
     if "risk_profile" in rp and isinstance(rp["risk_profile"], dict):
@@ -234,7 +299,7 @@ agent_ok, agent_err = check_imports()
 _defaults = dict(
     agent=None, report=None, findings=[], scored=[],
     risk_profile={}, tool_log=[], df=None,
-    chat=[], history_log=[], ran=False, error=None,
+    chat=[], history_log=[], log_lines=[], ran=False, error=None,
 )
 for k, v in _defaults.items():
     if k not in st.session_state:
@@ -334,10 +399,32 @@ with t1:
     uploaded = st.file_uploader("Drop sensor CSV", type=["csv"], label_visibility="collapsed")
     if uploaded:
         try:
-            new_df = pd.read_csv(uploaded)
+            with warnings.catch_warnings(record=True) as wlist:
+                warnings.simplefilter("always")
+                new_df = pd.read_csv(uploaded)
+                # If the delimiter is wrong, pandas may parse everything into a single column.
+                # Try auto-detecting the delimiter so `timestamp`/`value` can be found.
+                if len(new_df.columns) == 1:
+                    try:
+                        uploaded.seek(0)
+                        new_df = pd.read_csv(uploaded, sep=None, engine="python")
+                    except Exception:
+                        # Keep the first parse result; the validation banner will explain.
+                        pass
+            if wlist:
+                # Show pandas parsing warnings in the UI (they otherwise only appear in the server console).
+                shown = 0
+                for wi in wlist:
+                    if shown >= 10:
+                        break
+                    st.warning(f"CSV warning: {wi.message}")
+                    shown += 1
+                if len(wlist) > shown:
+                    st.info(f"... and {len(wlist) - shown} more CSV warning(s).")
             for k in ("ran","agent","report","findings","scored","risk_profile","tool_log","chat","error"):
                 st.session_state[k] = _defaults[k]
-            st.session_state.df = new_df
+            st.session_state.log_lines = []
+            st.session_state.df = normalize_sensor_df(new_df, asset_name)
         except Exception as e:
             st.error(f"Could not parse CSV: {e}")
 
@@ -351,10 +438,27 @@ with t2:
     if st.button("Parse pasted data"):
         if pasted.strip():
             try:
-                new_df = pd.read_csv(StringIO(pasted))
+                with warnings.catch_warnings(record=True) as wlist:
+                    warnings.simplefilter("always")
+                    new_df = pd.read_csv(StringIO(pasted))
+                    if len(new_df.columns) == 1:
+                        # Auto-detect delimiter for pasted content as well.
+                        new_df = pd.read_csv(
+                            StringIO(pasted), sep=None, engine="python"
+                        )
+                if wlist:
+                    shown = 0
+                    for wi in wlist:
+                        if shown >= 10:
+                            break
+                        st.warning(f"CSV warning: {wi.message}")
+                        shown += 1
+                    if len(wlist) > shown:
+                        st.info(f"... and {len(wlist) - shown} more CSV warning(s).")
                 for k in ("ran","agent","report","findings","scored","risk_profile","tool_log","chat","error"):
                     st.session_state[k] = _defaults[k]
-                st.session_state.df = new_df
+                st.session_state.log_lines = []
+                st.session_state.df = normalize_sensor_df(new_df, asset_name)
             except Exception as e:
                 st.error(f"Parse error: {e}")
 
@@ -367,6 +471,13 @@ if st.session_state.df is not None:
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Rows", f"{len(df):,}")
     c2.metric("Columns", len(df.columns))
+    missing_cols = [c for c in REQUIRED_COLUMNS if c not in df.columns]
+    if missing_cols:
+        st.warning(
+            "Uploaded CSV is missing required columns: "
+            + ", ".join(missing_cols)
+            + ". Upload a CSV with headers like `timestamp, tag, value, unit, asset, status`."
+        )
     if "value" in df.columns:
         v = pd.to_numeric(df["value"], errors="coerce")
         c3.metric("Value range", f"{v.min():.2f} – {v.max():.2f}")
@@ -380,7 +491,16 @@ if st.session_state.df is not None:
 
     bc, lc = st.columns([2, 5])
     with bc:
-        run_btn = st.button("▶  Run Diagnosis", use_container_width=True, disabled=not agent_ok)
+        run_disabled = (
+            (not agent_ok)
+            or ("timestamp" not in df.columns)
+            or ("value" not in df.columns)
+        )
+        run_btn = st.button(
+            "▶  Run Diagnosis",
+            use_container_width=True,
+            disabled=run_disabled,
+        )
     with lc:
         st.markdown(
             f'<p style="color:var(--muted);font-size:12px;padding-top:.65rem;font-family:var(--mono)">'
@@ -392,21 +512,32 @@ if st.session_state.df is not None:
     # ── Run the agent ─────────────────────────────────────────────────────────
     if run_btn:
         st.session_state.error = None
+        st.session_state.log_lines = []
         bar = st.progress(0, text="Initialising…")
 
         try:
             from app.agent import IndusDiagAgent
             import rich as _rich
+            tmp_path = None
 
-            # ── Silence Rich globally so it doesn't write to Streamlit's stdout ──
-            _orig_rprint = _rich.print
-            _rich.print  = lambda *a, **kw: None
-
-            # Also patch the rprint import inside agent module directly
-            import app.agent as _agent_mod
-            _agent_mod.rprint = lambda *a, **kw: None
+            def _capture_rprint(*a, **kw):
+                # Store Rich console output so it can be shown in the UI.
+                try:
+                    text = " ".join(str(x) for x in a).strip()
+                except Exception:
+                    text = str(a).strip()
+                if text:
+                    st.session_state.log_lines.append(text)
 
             # ── Save CSV to a real temp file (parser.py expects a file path) ──
+            # Patch Rich output during the run so we can capture it without polluting the server logs.
+            _orig_rprint = _rich.print
+            _rich.print = _capture_rprint
+
+            import app.agent as _agent_mod
+            _orig_agent_rprint = _agent_mod.rprint
+            _agent_mod.rprint = _capture_rprint
+
             tmp = tempfile.NamedTemporaryFile(
                 mode="w", suffix=".csv", delete=False, dir=str(ROOT)
             )
@@ -419,10 +550,8 @@ if st.session_state.df is not None:
             agent = IndusDiagAgent(
                 asset_name=asset_name,
                 use_claude=use_claude,
-                verbose=False,
+                verbose=True,
             )
-            # Silence _log at instance level too
-            agent._log = lambda msg: None
 
             # ── Phase 1 ───────────────────────────────────────────────────
             agent.load_data(tmp_path)
@@ -433,27 +562,70 @@ if st.session_state.df is not None:
             findings = agent.run_detection_tools()
 
             # ── Phase 3 ───────────────────────────────────────────────────
-            bar.progress(0.52, text="Phase 3 · Scoring findings…")
-            agent.run_scoring()
+            if not findings:
+                # Mirror `agent.run()` behavior so the UI still shows a report when the LLM is unavailable.
+                bar.progress(0.52, text="Phase 3 · No anomalies detected")
+                report = (
+                    "No anomalies were detected in this sensor data. "
+                    "The asset appears to be operating normally."
+                )
+                agent.session.diagnostic_report = report
+                agent.session.risk_profile = {
+                    "risk_score": 0.0,
+                    "risk_level": "NONE",
+                    "dominant_issue": None,
+                    "finding_count": 0,
+                }
 
-            # ── Phase 4 ───────────────────────────────────────────────────
-            bar.progress(0.65, text="Phase 4 · Querying memory…")
-            history = agent.retrieve_memory()
+                bar.progress(0.78, text="Phase 6 · Saving session…")
+                agent.save_session()
+            else:
+                bar.progress(0.52, text="Phase 3 · Scoring findings…")
+                agent.run_scoring()
 
-            # ── Phase 5 ───────────────────────────────────────────────────
-            bar.progress(0.78, text="Phase 5 · Generating AI report…")
-            report = agent.generate_report(history)
+                # ── Phase 4 ───────────────────────────────────────────────────
+                bar.progress(0.65, text="Phase 4 · Querying memory…")
+                history = agent.retrieve_memory()
 
-            # ── Phase 6 ───────────────────────────────────────────────────
-            bar.progress(0.92, text="Phase 6 · Saving session…")
-            agent.save_session()
+                # ── Phase 5 ───────────────────────────────────────────────────
+                bar.progress(0.78, text="Phase 5 · Generating AI report…")
+                try:
+                    report = agent.generate_report(history)
+                except Exception:
+                    # Still show detector results even if the LLM call fails.
+                    report_err = traceback.format_exc()
+                    st.warning("AI report generation failed; showing detector summary.")
+                    report = (
+                        "AI report generation failed.\n\n"
+                        "Detector results are shown, but the LLM backend errored:\n"
+                        f"{report_err}"
+                    )
+                    agent.session.diagnostic_report = report
+                    try:
+                        agent.session.add_message("assistant", report)
+                    except Exception:
+                        pass
+
+                # ── Phase 6 ───────────────────────────────────────────────────
+                bar.progress(0.92, text="Phase 6 · Saving session…")
+                try:
+                    agent.save_session()
+                except Exception:
+                    pass
 
             bar.progress(1.0, text="Complete ✓")
             time.sleep(0.3)
             bar.empty()
 
-            # Restore rich.print
-            _rich.print = _orig_rprint
+            # Restore rich.print + patched rprint in the agent module
+            try:
+                _rich.print = _orig_rprint
+            except Exception:
+                pass
+            try:
+                _agent_mod.rprint = _orig_agent_rprint
+            except Exception:
+                pass
 
             # ── Read all results from agent.session directly ──────────────
             raw_findings = agent.session.raw_findings  or []
@@ -489,6 +661,19 @@ if st.session_state.df is not None:
 
         except Exception:
             bar.empty()
+            try:
+                _rich.print = _orig_rprint
+            except Exception:
+                pass
+            try:
+                _agent_mod.rprint = _orig_agent_rprint
+            except Exception:
+                pass
+            try:
+                if tmp_path:
+                    os.unlink(tmp_path)
+            except Exception:
+                pass
             st.session_state.error = traceback.format_exc()
             st.session_state.ran   = False
 
@@ -818,6 +1003,7 @@ if st.session_state.ran and st.session_state.report is not None:
         ph("Full Agent Run Log")
 
         pdata = agent.session.parsed_data if agent else None
+        agent_logs = st.session_state.log_lines or []
 
         lines = [
             f'<span class="tm"># IndusDiag — {time.strftime("%Y-%m-%d %H:%M:%S")}</span>',
@@ -828,6 +1014,14 @@ if st.session_state.ran and st.session_state.report is not None:
             "",
             '<span class="tb tw">━━━  PHASE 1 · PARSE  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>',
         ]
+        if agent_logs:
+            lines += [
+                "",
+                '<span class="tb tw">━━━  AGENT VERBOSE LOG  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>',
+            ]
+            for lg in agent_logs[-120:]:
+                escaped = lg.replace("<", "&lt;").replace(">", "&gt;")
+                lines.append(f'  <span style="color:#8eaabf">{escaped}</span>')
         if pdata is not None:
             lines += [
                 f'  Asset:    <span class="tg">{asset_name}</span>',
