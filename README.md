@@ -40,7 +40,7 @@ It ingests raw sensor telemetry from equipment like motors, furnaces, conveyors,
 then autonomously runs anomaly detection, risk scoring, memory retrieval, and LLM-powered
 diagnostic reasoning to produce structured, actionable reports.
 
-It is not a chatbot. It is not a dashboard. It is an **autonomous diagnostic agent** that
+It is not a chatbot. It is an **autonomous diagnostic agent** that
 does in 5 seconds what used to take an engineer 30 minutes.
 
 ---
@@ -93,7 +93,7 @@ This is the difference between **reactive maintenance** and **intelligent predic
 indusdiag/
 ├── app/
 │   ├── agent.py            # Core agentic loop (Parse→Detect→Score→Memory→Report→Save)
-│   ├── detectors.py        # 6 anomaly detection algorithms
+│   ├── detector.py        # 6 anomaly detection algorithms
 │   ├── parser.py           # CSV ingestion and validation
 │   ├── reasoner.py         # OpenRouter LLM integration
 │   ├── claude_reasoner.py  # Anthropic Claude API integration
@@ -122,7 +122,27 @@ indusdiag/
 ```
 
 ---
+## 🖥 Basic UI Preview
 
+### Upload Sensor Log
+Drag and drop a sensor log file directly into the interface.
+
+![Input Upload](docs/ui_1.png)
+
+### Select Dataset
+Alternatively, select a dataset from the dropdown menu.
+
+![Dataset Selection](docs/ui_2.png)
+
+### Data Preview
+The system previews the uploaded data so the user can verify the input before analysis.
+
+![Data Preview](docs/ui_3.png)
+
+### Run Diagnosis
+IndusDiag analyzes the dataset, detects anomalies, scores risk, and generates a structured diagnostic report.
+
+![Full Analysis](docs/ui_4.png)
 ## Quick Start
 
 ```bash
