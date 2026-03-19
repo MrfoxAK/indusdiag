@@ -1,0 +1,21 @@
+timestamp,tag,value,unit,asset,status
+2026-03-18 10:00:00,temp_1,121,C,FurnaceSensorA,ok
+2026-03-18 10:01:00,temp_1,122,C,FurnaceSensorA,ok
+2026-03-18 10:02:00,temp_1,120,C,FurnaceSensorA,ok
+2026-03-18 10:03:00,temp_1,123,C,FurnaceSensorA,ok
+2026-03-18 10:04:00,temp_1,124,C,FurnaceSensorA,ok
+2026-03-18 10:05:00,pressure_1,1.2,bar,PumpA,ok
+2026-03-18 10:06:00,pressure_1,1.1,bar,PumpA,ok
+2026-03-18 10:07:00,pressure_1,0.9,bar,PumpA,warning
+2026-03-18 10:08:00,flow_1,28,m3h,PumpA,ok
+2026-03-18 10:09:00,flow_1,24,m3h,PumpA,warning
+2026-03-18 10:10:00,vibration_1,6.2,mm_s,PumpA,warning
+2026-03-18 10:11:00,vibration_1,6.8,mm_s,PumpA,warning
+2026-03-18 10:12:00,vibration_1,7.1,mm_s,PumpA,alarm
+2026-03-18 10:13:00,temp_2,88,C,MotorB,ok
+2026-03-18 10:14:00,temp_2,95,C,MotorB,warning
+2026-03-18 10:15:00,temp_2,102,C,MotorB,alarm
+2026-03-18 10:16:00,current_1,32,A,MotorB,ok
+2026-03-18 10:17:00,current_1,38,A,MotorB,warning
+2026-03-18 10:18:00,current_1,42,A,MotorB,alarm
+2026-03-18 10:19:00,flow_1,22,m3h,PumpA,alarm

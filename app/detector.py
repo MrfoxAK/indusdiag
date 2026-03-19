@@ -1,5 +1,7 @@
 import pandas as pd
 
+import numpy as np
+
 
 def detect_spike(df, threshold=50):
     findings = []
@@ -119,6 +121,75 @@ def detect_drift(df, window=5, threshold_pct=0.15):
     return findings
 
 
+def detect_pump_cavitation(
+    df: pd.DataFrame,
+    window: int = 10,
+    low_factor: float = 0.8,
+    oscillations_threshold: int = 3,
+    amplitude_min_pct: float = 0.05,
+) -> list[dict]:
+    """
+    Heuristic pump cavitation detection.
+
+    Cavitation commonly shows up as:
+    - pressure (or proxy signal) dropping below a short-term baseline
+    - oscillatory behavior (rapid sign flips in first differences)
+    - enough amplitude to be distinguishable from noise
+
+    This is a generic rule that operates on `df["value"]` and assumes
+    the input series already corresponds to a cavitation-relevant tag.
+    """
+    findings: list[dict] = []
+
+    if window < 3 or len(df) < window + 1:
+        return findings
+
+    values = df["value"]
+    rolling_median = values.rolling(window=window, min_periods=window).median()
+
+    # Check windows ending at index i
+    for i in range(window, len(values)):
+        baseline = rolling_median.iloc[i]
+        if pd.isna(baseline) or baseline == 0:
+            continue
+
+        curr = float(values.iloc[i])
+        # Cavitation proxy: current reading is sufficiently below baseline.
+        if curr > float(baseline) * low_factor:
+            continue
+
+        start = i - window + 1
+        segment = values.iloc[start : i + 1].astype(float).to_numpy()
+        amplitude = float(np.max(segment) - np.min(segment))
+        if amplitude < abs(float(baseline)) * amplitude_min_pct:
+            continue
+
+        diffs = np.diff(segment)
+        if diffs.size < 2:
+            continue
+
+        signs = np.sign(diffs)
+        # Count sign flips excluding zero/flat changes
+        non_zero = (signs[:-1] != 0) & (signs[1:] != 0)
+        sign_changes = int(np.sum((signs[:-1] * signs[1:] < 0) & non_zero))
+
+        if sign_changes >= oscillations_threshold:
+            findings.append(
+                {
+                    "issue_type": "pump_cavitation",
+                    "index": i,
+                    "value": curr,
+                    "message": (
+                        "Pump cavitation suspected: oscillatory drop below baseline "
+                        f"(baseline≈{float(baseline):.2f}, curr={curr:.2f}, "
+                        f"oscillations={sign_changes}, amplitude≈{amplitude:.2f})"
+                    ),
+                }
+            )
+
+    return findings
+
+
 def run_all_detectors(df):
 
     results = []
@@ -128,5 +199,6 @@ def run_all_detectors(df):
     results += detect_missing_data(df)
     results += detect_out_of_range(df)
     results += detect_drift(df)
+    results += detect_pump_cavitation(df)
 
     return results

@@ -16,6 +16,7 @@ from app.detector import (
     detect_missing_data,
     detect_out_of_range,
     detect_drift,
+    detect_pump_cavitation,
 )
 from app.scorer import compute_asset_risk, score_all_findings
 from app.formatter import format_findings_table, format_summary_stats
@@ -76,6 +77,32 @@ def tool_run_drift_detector(df: pd.DataFrame, window: int = 5) -> Dict:
         "findings": findings,
         "count": len(findings),
         "summary": f"Found {len(findings)} drift event(s)",
+    }
+
+
+def tool_run_pump_cavitation_detector(
+    df: pd.DataFrame,
+    window: int = 10,
+    low_factor: float = 0.8,
+    oscillations_threshold: int = 3,
+    amplitude_min_pct: float = 0.05,
+) -> Dict:
+    findings = detect_pump_cavitation(
+        df,
+        window=window,
+        low_factor=low_factor,
+        oscillations_threshold=oscillations_threshold,
+        amplitude_min_pct=amplitude_min_pct,
+    )
+    return {
+        "tool": "run_pump_cavitation_detector",
+        "findings": findings,
+        "count": len(findings),
+        "summary": (
+            f"Found {len(findings)} pump cavitation suspect event(s) "
+            f"(window={window}, low_factor={low_factor}, "
+            f"oscillations>={oscillations_threshold})"
+        ),
     }
 
 
@@ -186,6 +213,26 @@ TOOL_DEFINITIONS = [
         "name": "run_drift_detector",
         "description": "Detect gradual upward drift over time. Use for temperature or pressure sensors.",
         "parameters": {"window": "int (default 5) — rolling window size"},
+    },
+    {
+        "name": "run_pump_cavitation_detector",
+        "description": (
+            "Detect pump cavitation (oscillatory behavior with a drop below a "
+            "rolling baseline). Use when the sensor shows repeated low-pressure "
+            "oscillations."
+        ),
+        "parameters": {
+            "window": "int (default 10) — rolling window size",
+            "low_factor": (
+                "float (default 0.8) — current must be <= baseline * low_factor"
+            ),
+            "oscillations_threshold": (
+                "int (default 3) — required sign flips in first differences"
+            ),
+            "amplitude_min_pct": (
+                "float (default 0.05) — minimum amplitude relative to baseline"
+            ),
+        },
     },
     {
         "name": "compute_risk",

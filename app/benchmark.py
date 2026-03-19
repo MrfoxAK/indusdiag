@@ -101,6 +101,7 @@ def benchmark_per_detector(
         detect_missing_data,
         detect_out_of_range,
         detect_drift,
+        detect_pump_cavitation,
     )
 
     detectors = {
@@ -109,6 +110,7 @@ def benchmark_per_detector(
         "missing_data": detect_missing_data,
         "out_of_range": detect_out_of_range,
         "drift": detect_drift,
+        "pump_cavitation": detect_pump_cavitation,
     }
 
     results = {}

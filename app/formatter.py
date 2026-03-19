@@ -21,6 +21,7 @@ ISSUE_ICONS = {
     "missing_data": "🕳️",
     "out_of_range": "🚨",
     "drift": "📈",
+    "pump_cavitation": "🫧",
     "unknown": "❓",
 }
 

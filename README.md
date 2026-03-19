@@ -60,7 +60,7 @@ a furnace sensor flatining — the raw data exists but no one is watching it in 
 
 **What IndusDiag does instead:**
 1. Ingests the CSV automatically
-2. Runs 5 specialized detectors simultaneously via tool calls
+2. Runs 6 specialized detectors simultaneously via tool calls
 3. Scores findings by severity with a risk profile
 4. Checks memory for recurring issues on this asset
 5. Calls an LLM with full context to generate a structured diagnostic report
@@ -74,7 +74,7 @@ This is the difference between **reactive maintenance** and **intelligent predic
 
 | Feature | Description |
 |---|---|
-| **5 Anomaly Detectors** | Spike, flatline, drift (up/down), out-of-range, missing data |
+| **6 Anomaly Detectors** | Spike, flatline, drift (up/down), out-of-range, missing data, pump cavitation |
 | **Agentic Tool Calls** | Each detector runs as a named tool — fully logged |
 | **Risk Scoring** | 0.0–1.0 score per finding + asset-level risk profile |
 | **Persistent Memory** | Remembers past sessions per asset across runs |
@@ -93,7 +93,7 @@ This is the difference between **reactive maintenance** and **intelligent predic
 indusdiag/
 ├── app/
 │   ├── agent.py            # Core agentic loop (Parse→Detect→Score→Memory→Report→Save)
-│   ├── detectors.py        # 5 anomaly detection algorithms
+│   ├── detectors.py        # 6 anomaly detection algorithms
 │   ├── parser.py           # CSV ingestion and validation
 │   ├── reasoner.py         # OpenRouter LLM integration
 │   ├── claude_reasoner.py  # Anthropic Claude API integration
@@ -265,7 +265,8 @@ IndusDiag follows a **6-phase agentic loop**:
 │    ├─ tool: run_flatline_detector                        │
 │    ├─ tool: run_missing_data_detector                    │
 │    ├─ tool: run_out_of_range_detector                    │
-│    └─ tool: run_drift_detector                           │
+│    ├─ tool: run_drift_detector                          │
+│    └─ tool: run_pump_cavitation_detector               │
 │                                                          │
 │  Phase 3: SCORE                                          │
 │    ├─ tool: compute_risk → risk_level, risk_score        │
@@ -293,6 +294,7 @@ IndusDiag follows a **6-phase agentic loop**:
 | `detect_missing_data` | Timestamp gaps | > 2× expected interval |
 | `detect_out_of_range` | Values outside safe bounds | [0, 200] |
 | `detect_drift` | Gradual up/down trends | 15% change over window |
+| `detect_pump_cavitation` | Oscillatory low-pressure behavior | window=10, low_factor=0.8, oscillations>=3, amplitude>=5% baseline |
 
 ### Memory System
 

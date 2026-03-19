@@ -37,6 +37,7 @@ from app.tools import (
     tool_run_missing_data_detector,
     tool_run_out_of_range_detector,
     tool_run_drift_detector,
+    tool_run_pump_cavitation_detector,
     tool_compute_risk,
     tool_get_value_statistics,
     tool_get_asset_history,
@@ -131,6 +132,13 @@ class IndusDiagAgent:
         all_findings += r["findings"]
 
         r = self._call_tool("run_drift_detector", tool_run_drift_detector, df)
+        all_findings += r["findings"]
+
+        r = self._call_tool(
+            "run_pump_cavitation_detector",
+            tool_run_pump_cavitation_detector,
+            df,
+        )
         all_findings += r["findings"]
 
         self.session.raw_findings = all_findings

@@ -13,6 +13,7 @@ ISSUE_WEIGHTS: Dict[str, float] = {
     "missing_data": 0.6,
     "drift": 0.5,
     "flatline": 0.4,
+    "pump_cavitation": 0.9,
 }
 
 # Severity thresholds based on weighted score
