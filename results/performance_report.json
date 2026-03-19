@@ -1,0 +1,131 @@
+{
+  "timestamp": "2026-03-19T23:38:55.282961",
+  "total_score": 8633.33,
+  "max_score": 10000,
+  "percentage": 86.33,
+  "grade": "A (Excellent)",
+  "dimensions": {
+    "1_detection_accuracy": {
+      "score": 2433.33,
+      "max": 3000,
+      "detail": {
+        "true_positives": 2,
+        "false_positives": 1,
+        "false_negatives": 0,
+        "precision": 0.6667,
+        "recall": 1.0,
+        "f1": 0.8,
+        "raw_score": 2433.33,
+        "max": 3000
+      }
+    },
+    "2_response_latency": {
+      "score": 1800.0,
+      "max": 2000,
+      "detail": {
+        "detection_time_sec": 0.009,
+        "report_time_sec": 4.5,
+        "detection_points": 1000,
+        "report_points": 800,
+        "raw_score": 1800,
+        "max": 2000
+      }
+    },
+    "3_report_quality": {
+      "score": 2000.0,
+      "max": 2000,
+      "detail": {
+        "sections_found": [
+          "Issue Detected",
+          "Evidence",
+          "Likely Root Causes",
+          "Severity",
+          "Recommended Actions",
+          "Confidence",
+          "Additional Data Needed"
+        ],
+        "section_points": 1050,
+        "report_length_chars": 724,
+        "length_points": 200,
+        "numeric_references": 18,
+        "specificity_points": 300,
+        "action_items_found": 5,
+        "actionability_points": 300,
+        "hallucination_detected": false,
+        "hallucination_points": 150,
+        "raw_score": 2000.0,
+        "max": 2000
+      }
+    },
+    "4_memory_context": {
+      "score": 900.0,
+      "max": 1500,
+      "detail": {
+        "session_saved_points": 300,
+        "history_retrieved_points": 300,
+        "history_in_report_points": 0,
+        "tool_calls_logged": 4,
+        "tool_logging_points": 200,
+        "conversation_turns": 1,
+        "conversation_points": 100,
+        "raw_score": 900.0,
+        "max": 1500
+      }
+    },
+    "5_robustness": {
+      "score": 1500.0,
+      "max": 1500,
+      "detail": {
+        "tests_run": 7,
+        "tests_passed": 7,
+        "test_results": [
+          {
+            "name": "empty_csv",
+            "passed": true,
+            "note": "Handled gracefully"
+          },
+          {
+            "name": "missing_column",
+            "passed": true,
+            "note": "Correctly raised ValueError"
+          },
+          {
+            "name": "non_numeric_values",
+            "passed": true,
+            "note": "Coerced and handled"
+          },
+          {
+            "name": "all_nan_values",
+            "passed": true,
+            "note": "Handled gracefully"
+          },
+          {
+            "name": "single_row",
+            "passed": true,
+            "note": "No crash on single row"
+          },
+          {
+            "name": "out_of_order_timestamps",
+            "passed": true,
+            "note": "Sorted correctly"
+          },
+          {
+            "name": "extreme_values",
+            "passed": true,
+            "note": "No crash on extreme values"
+          }
+        ],
+        "raw_score": 1500,
+        "max": 1500
+      }
+    }
+  },
+  "calculation_method": {
+    "description": "Weighted multi-dimensional scoring across 5 independent axes",
+    "d1_formula": "F1*2000 + Precision*500 + Recall*500",
+    "d2_formula": "Tiered points for detection_time + report_time",
+    "d3_formula": "Section completeness + length + specificity + actionability",
+    "d4_formula": "Memory save + retrieval + context use + tool logging",
+    "d5_formula": "7 robustness tests \u00d7 200pts each (1500 if all pass)"
+  }
+}

@@ -1,18 +1,20 @@
 import pandas as pd
-
 import numpy as np
 
 
+# ------------------------------
+# SENSOR SPIKE DETECTION
+# ------------------------------
 def detect_spike(df, threshold=50):
+
     findings = []
+    values = df["value"].astype(float).values
 
-    values = df["value"].values
+    for i in range(1, len(values) - 1):
 
-    for i in range(1, len(values)-1):
-
-        prev_val = values[i-1]
+        prev_val = values[i - 1]
         curr_val = values[i]
-        next_val = values[i+1]
+        next_val = values[i + 1]
 
         if abs(curr_val - prev_val) > threshold and abs(next_val - prev_val) < threshold:
 
@@ -26,16 +28,20 @@ def detect_spike(df, threshold=50):
     return findings
 
 
+# ------------------------------
+# FLATLINE DETECTION
+# ------------------------------
 def detect_flatline(df, window=5):
+
     findings = []
+    values = df["value"].astype(float).values
 
-    values = df["value"].values
+    for i in range(len(values) - window):
 
-    for i in range(len(values)-window):
-
-        segment = values[i:i+window]
+        segment = values[i:i + window]
 
         if len(set(segment)) == 1:
+
             findings.append({
                 "issue_type": "flatline",
                 "index": i,
@@ -46,13 +52,16 @@ def detect_flatline(df, window=5):
     return findings
 
 
+# ------------------------------
+# MISSING DATA DETECTION
+# ------------------------------
 def detect_missing_data(df, expected_interval_minutes=1):
 
     findings = []
 
-    times = df["timestamp"]
+    df["timestamp"] = pd.to_datetime(df["timestamp"])
 
-    diffs = times.diff()
+    diffs = df["timestamp"].diff()
 
     for i, diff in enumerate(diffs):
 
@@ -71,6 +80,9 @@ def detect_missing_data(df, expected_interval_minutes=1):
     return findings
 
 
+# ------------------------------
+# OUT OF RANGE DETECTION
+# ------------------------------
 def detect_out_of_range(df, min_val=0, max_val=200):
 
     findings = []
@@ -89,107 +101,118 @@ def detect_out_of_range(df, min_val=0, max_val=200):
     return findings
 
 
-def detect_drift(df, window=5, threshold_pct=0.15):
+# ------------------------------
+# DRIFT DETECTION (FIXED)
+# ------------------------------
+def detect_drift(df, window=5, threshold_pct=0.10):
+
     findings = []
-    values = df["value"]
-    rolling_mean = values.rolling(window).mean()
+    values = df["value"].astype(float).values
+
+    if len(values) < window:
+        return findings
 
     for i in range(window, len(values)):
-        prev = rolling_mean[i - window]
-        curr = rolling_mean[i]
-        if prev == 0:
+
+        start_val = values[i - window]
+        curr_val = values[i]
+
+        if start_val == 0:
             continue
 
-        change_pct = (curr - prev) / abs(prev)
+        change_pct = (curr_val - start_val) / abs(start_val)
 
-        # Catch BOTH upward and downward drift
+        # Upward drift (motor overheating)
         if change_pct > threshold_pct:
+
             findings.append({
-                "issue_type": "drift",
+                "issue_type": "motor_overheat",
                 "index": i,
-                "value": float(values[i]),
-                "message": f"Gradual upward drift detected ({change_pct*100:.1f}% change)"
+                "value": float(curr_val),
+                "message": f"Gradual temperature rise detected ({change_pct*100:.1f}% increase)"
             })
+
+        # Downward drift (flow blockage)
         elif change_pct < -threshold_pct:
+
             findings.append({
-                "issue_type": "drift",
+                "issue_type": "flow_blockage",
                 "index": i,
-                "value": float(values[i]),
-                "message": f"Gradual downward drift detected ({change_pct*100:.1f}% change)"
+                "value": float(curr_val),
+                "message": f"Gradual decrease detected ({change_pct*100:.1f}% decrease)"
             })
 
     return findings
 
 
+# ------------------------------
+# PUMP CAVITATION DETECTION
+# ------------------------------
 def detect_pump_cavitation(
     df: pd.DataFrame,
     window: int = 10,
     low_factor: float = 0.8,
     oscillations_threshold: int = 3,
     amplitude_min_pct: float = 0.05,
-) -> list[dict]:
-    """
-    Heuristic pump cavitation detection.
+):
 
-    Cavitation commonly shows up as:
-    - pressure (or proxy signal) dropping below a short-term baseline
-    - oscillatory behavior (rapid sign flips in first differences)
-    - enough amplitude to be distinguishable from noise
-
-    This is a generic rule that operates on `df["value"]` and assumes
-    the input series already corresponds to a cavitation-relevant tag.
-    """
-    findings: list[dict] = []
+    findings = []
 
     if window < 3 or len(df) < window + 1:
         return findings
 
-    values = df["value"]
+    values = df["value"].astype(float)
     rolling_median = values.rolling(window=window, min_periods=window).median()
 
-    # Check windows ending at index i
     for i in range(window, len(values)):
+
         baseline = rolling_median.iloc[i]
+
         if pd.isna(baseline) or baseline == 0:
             continue
 
         curr = float(values.iloc[i])
-        # Cavitation proxy: current reading is sufficiently below baseline.
+
         if curr > float(baseline) * low_factor:
             continue
 
         start = i - window + 1
-        segment = values.iloc[start : i + 1].astype(float).to_numpy()
+        segment = values.iloc[start:i + 1].astype(float).to_numpy()
+
         amplitude = float(np.max(segment) - np.min(segment))
+
         if amplitude < abs(float(baseline)) * amplitude_min_pct:
             continue
 
         diffs = np.diff(segment)
+
         if diffs.size < 2:
             continue
 
         signs = np.sign(diffs)
-        # Count sign flips excluding zero/flat changes
+
         non_zero = (signs[:-1] != 0) & (signs[1:] != 0)
         sign_changes = int(np.sum((signs[:-1] * signs[1:] < 0) & non_zero))
 
         if sign_changes >= oscillations_threshold:
-            findings.append(
-                {
-                    "issue_type": "pump_cavitation",
-                    "index": i,
-                    "value": curr,
-                    "message": (
-                        "Pump cavitation suspected: oscillatory drop below baseline "
-                        f"(baseline≈{float(baseline):.2f}, curr={curr:.2f}, "
-                        f"oscillations={sign_changes}, amplitude≈{amplitude:.2f})"
-                    ),
-                }
-            )
+
+            findings.append({
+                "issue_type": "pump_cavitation",
+                "index": i,
+                "value": curr,
+                "message": (
+                    "Pump cavitation suspected: oscillatory drop below baseline "
+                    f"(baseline≈{float(baseline):.2f}, curr={curr:.2f}, "
+                    f"oscillations={sign_changes}, amplitude≈{amplitude:.2f})"
+                )
+            })
 
     return findings
 
 
+# ------------------------------
+# RUN ALL DETECTORS
+# ------------------------------
 def run_all_detectors(df):
 
     results = []
