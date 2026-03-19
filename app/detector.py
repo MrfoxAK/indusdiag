@@ -87,23 +87,33 @@ def detect_out_of_range(df, min_val=0, max_val=200):
     return findings
 
 
-def detect_drift(df, window=5):
-
+def detect_drift(df, window=5, threshold_pct=0.15):
     findings = []
-
     values = df["value"]
-
     rolling_mean = values.rolling(window).mean()
 
     for i in range(window, len(values)):
+        prev = rolling_mean[i - window]
+        curr = rolling_mean[i]
+        if prev == 0:
+            continue
 
-        if rolling_mean[i] > rolling_mean[i-window] * 1.2:
+        change_pct = (curr - prev) / abs(prev)
 
+        # Catch BOTH upward and downward drift
+        if change_pct > threshold_pct:
             findings.append({
                 "issue_type": "drift",
                 "index": i,
-                "value": values[i],
-                "message": "Gradual upward drift detected"
+                "value": float(values[i]),
+                "message": f"Gradual upward drift detected ({change_pct*100:.1f}% change)"
+            })
+        elif change_pct < -threshold_pct:
+            findings.append({
+                "issue_type": "drift",
+                "index": i,
+                "value": float(values[i]),
+                "message": f"Gradual downward drift detected ({change_pct*100:.1f}% change)"
             })
 
     return findings

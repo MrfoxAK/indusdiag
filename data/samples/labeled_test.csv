@@ -1,0 +1,21 @@
+timestamp,tag,value,unit,asset,status,label
+2026-03-18 10:00:00,pressure,50,bar,PumpA,ok,normal
+2026-03-18 10:01:00,pressure,52,bar,PumpA,ok,normal
+2026-03-18 10:02:00,pressure,51,bar,PumpA,ok,normal
+2026-03-18 10:03:00,pressure,210,bar,PumpA,warn,out_of_range
+2026-03-18 10:04:00,pressure,49,bar,PumpA,ok,normal
+2026-03-18 10:05:00,pressure,50,bar,PumpA,ok,normal
+2026-03-18 10:06:00,pressure,50,bar,PumpA,ok,normal
+2026-03-18 10:07:00,pressure,50,bar,PumpA,ok,normal
+2026-03-18 10:08:00,pressure,160,bar,PumpA,warn,sensor_spike
+2026-03-18 10:09:00,pressure,51,bar,PumpA,ok,normal
+2026-03-18 10:10:00,pressure,50,bar,PumpA,ok,normal
+2026-03-18 10:15:00,pressure,50,bar,PumpA,ok,missing_data
+2026-03-18 10:16:00,pressure,50,bar,PumpA,ok,normal
+2026-03-18 10:17:00,pressure,50,bar,PumpA,ok,normal
+2026-03-18 10:18:00,pressure,50,bar,PumpA,ok,flatline
+2026-03-18 10:19:00,pressure,50,bar,PumpA,ok,flatline
+2026-03-18 10:20:00,pressure,50,bar,PumpA,ok,flatline
+2026-03-18 10:21:00,pressure,50,bar,PumpA,ok,flatline
+2026-03-18 10:22:00,pressure,50,bar,PumpA,ok,flatline
+2026-03-18 10:23:00,pressure,53,bar,PumpA,ok,normal
